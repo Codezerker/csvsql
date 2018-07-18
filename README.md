@@ -1,8 +1,8 @@
-# Csvsql
+Csvsql
+======
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/csvsql`. To experiment with that code, run `bin/console` for an interactive prompt.
+Use SQL to query your CSV file, and return a new CSV.
 
-TODO: Delete this and the text above, and describe your gem
 
 ## Installation
 
@@ -22,13 +22,78 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+### Example CSV `mydata.csv`
+
+```csv
+name,total:int,created_at:datetime
+a,12,2018-1-1 11:22
+b,21,2018-3-1 10:20
+c,39,2018-1-19 20:10
+```
+
+The first line is title for each columns. We use `:` split the title name and column type. the column type is `varchar(255)` if you did give a type.
+
+There are same types: `int`, `integer` `float`, `double`, `date`, `datetime`, `varchar(255)`.
+
+All sqlite3 type is supported, but maybe some type cannot convert to a sqlite3 value type.
+
+### Query from file & Output
+
+```
+# csvsql [options] SQL
+csvsql -h # Get help
+```
+
+```
+$ csvsql -i mydata.csv "select * from csv where created_at > '2018-1-1' and total > 20" > /tmp/result.csv
+# name:varchar(255),total:int,created_at:datetime
+# b,21,2018-3-1 10:20:00
+# c,39,2018-1-19 20:10:00
+
+csvsql -i mydata.csv "select count(*) as total_record from csv where created_at > '2018-1-1'" > /tmp/result.csv
+# total_record:integer
+# 2
+
+csvsql -i mydata.csv "select name, total from csv where total < 30" > /tmp/result.csv
+# name:varchar(255),total:integer
+# a,12
+# b,21
+```
+
+### Query from stdin
+
+If not give a csv by `-i`, we will get the input from stdin.
+
+```
+csvsql -i mydata.csv "select name, total from csv where total < 30" | csvsql "select count(*) as count from csv"
+# count:integer
+# 2
+```
+
+### Cache CSV data
+
+It will save the CSV data to a tempfile. we use `~/.csvsql_cache` folder to save the cache
+
+```
+csvsql -i large.csv -t "select count(*) from csv"
+
+# the second, it will be fast.
+csvsql -i large.csv -t "select count(*) from csv"
+```
+
+### Clear Cache
+
+This command will remove all data in the `~/.csvsql_cache`
+
+```
+csvsql --clear
+```
+
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
-
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+* Make sure your code has some testing.
+* Run `rubocop -a` before commit your code.
 
 ## Contributing
 

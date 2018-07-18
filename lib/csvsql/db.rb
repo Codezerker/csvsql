@@ -1,57 +1,89 @@
+# frozen_string_literal: true
+
+require 'digest'
+
 module Csvsql
   class Db
     BATCH_LINES = 10000
+    CACHE_DIR = File.join(Dir.home, '.csvsql_cache')
 
-    attr_reader :header
+    FileUtils.mkdir_p(CACHE_DIR) unless Dir.exists?(CACHE_DIR)
 
-    def db
-      @db ||= SQLite3::Database.new ''
+    attr_reader :use_cache, :csv_path, :db
+
+    def self.clear_cache!
+      FileUtils.rm_f(Dir.glob(File.join(CACHE_DIR, '*')))
+    end
+
+    def initialize(use_cache: false)
+      @db = nil
+      @csv_path = nil
+      @use_cache = use_cache
+    end
+
+    # action:
+    #   raise: default
+    #   exit
+    def sql_error_action=(action)
+      @sql_error_action = action.to_sym
     end
 
     def execute(sql)
       db.execute(sql)
     rescue SQLite3::SQLException => e
-      $stderr.puts(sql)
-      $stderr.puts(e.message)
-      exit
+      process_sql_error(sql, e)
+    end
+
+    def prepare(sql)
+      db.prepare(sql)
+    rescue SQLite3::SQLException => e
+      process_sql_error(sql, e)
     end
 
     def import(csv_path)
-      csv = CSV.open(csv_path)
-      @header = parser_header(csv.readline)
+      @csv_path = csv_path
+      @db = SQLite3::Database.new(get_db_path(csv_path))
 
-      init_db_by_header()
+      tables = db.execute("SELECT name FROM sqlite_master WHERE type='table';").first
+      unless tables && tables.include?('csv')
+        init_db()
+      end
+      true
+    end
+
+    private
+
+    def parser_header(csv_header)
+      csv_header.map do |col, r|
+        name, type = col.strip.split(':')
+        [name, (type || 'varchar(255)').downcase.to_sym]
+      end
+    end
+
+    def init_db
+      csv = CSV.open(csv_path)
+      header = parser_header(csv.readline)
+
+      cols = header.map { |name, type| "#{name} #{type}" }.join(', ')
+      sql = "CREATE TABLE csv (#{cols});"
+      execute sql
 
       cache = []
+      col_names = header.map(&:first)
       csv.each do |line|
         if cache.length > BATCH_LINES then
-          import_lines(cache)
+          import_lines(cache, col_names)
           cache.clear
         else
           cache << line.each_with_index.map { |v, i| format_sql_val(v, header[i][1]) }
         end
       end
-      import_lines(cache) unless cache.empty?
+      import_lines(cache, col_names) unless cache.empty?
       db
     end
 
-    private
-
-    def parser_header(header)
-      header.map do |col, r|
-        name, type = col.strip.split(':')
-        [name, (type || 'varchar(256)').downcase.to_sym]
-      end
-    end
-
-    def init_db_by_header()
-      cols = header.map { |name, type| "#{name} #{type}" }.join(', ')
-      sql = "CREATE TABLE csv (#{cols});"
-      execute sql
-    end
-
-    def import_lines(lines)
-      sql = "INSERT INTO csv (#{header.map(&:first).join(', ')}) VALUES "
+    def import_lines(lines, col_names)
+      sql = "INSERT INTO csv (#{col_names.join(', ')}) VALUES "
       values = lines.map { |line| "(#{line.join(',')})" }.join(', ')
       execute sql + values
     end
@@ -59,10 +91,49 @@ module Csvsql
     def format_sql_val(val, type)
       case type
       when :int, :integer then val.to_i
-      when :real, :float, :double then val.to_f
-      # when :date, :datetime
+      when :float, :double then val.to_f
+      when :date then "'#{Date.parse(val).to_s}'"
+      when :datetime then "'#{Time.parse(val).strftime('%F %T')}'"
       else
         "'#{val.gsub("'", "''")}'"
+      end
+    end
+
+    def process_sql_error(sql, err)
+      $stderr.puts(sql)
+
+      if @error_action == :exit
+        $stderr.puts(e.message)
+        exit
+      else
+        raise err
+      end
+    end
+
+    def get_db_path(csv_path)
+      csv_path = csv_path || ''
+      return '' unless File.exist?(csv_path)
+
+      if use_cache
+        stat = File.stat(csv_path)
+        filename = Digest::SHA2.hexdigest(File.absolute_path(csv_path)) + '.cache'
+        file_stat = [File.absolute_path(csv_path), stat.size, stat.ctime].join("\n")
+        stat_path = File.join(CACHE_DIR, filename.gsub(/\.cache$/, '.stat'))
+        cache_path = File.join(CACHE_DIR, filename)
+
+        if File.exist?(stat_path)
+          if File.read(stat_path) == file_stat
+            cache_path
+          else
+            FileUtils.rm(cache_path)
+            cache_path
+          end
+        else
+          File.write(stat_path, file_stat)
+          cache_path
+        end
+      else
+        ''
       end
     end
   end
