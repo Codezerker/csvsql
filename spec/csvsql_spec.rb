@@ -25,5 +25,15 @@ RSpec.describe Csvsql do
       allow(pst).to receive(:each) { |&block| block.call(['da', 'db']) }
       expect(Csvsql.execute(sql, path)).to eql("a:text,b:int\nda,db\n")
     end
+
+    it "should not join nil type" do
+      allow(Csvsql::Db).to receive(:new).and_return(csvdb)
+      pst = double('pst', columns: ['a', 'b'], types: ['text', nil], each: nil)
+      expect(csvdb).to receive(:import).with(path)
+      expect(csvdb).to receive(:prepare).with(sql).and_return(pst)
+
+      allow(pst).to receive(:each) { |&block| block.call(['da', 'db']) }
+      expect(Csvsql.execute(sql, path)).to eql("a:text,b\nda,db\n")
+    end
   end
 end

@@ -1,7 +1,34 @@
 #! /usr/bin/env ruby
 
+require 'optparse'
+
 lib = File.expand_path("../../lib", __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'csvsql'
 
-puts Csvsql.execute(ARGV[0], ARGV[1])
+options = {}
+OptionParser.new do |opts|
+  opts.banner = "Usage: csvsql [options] SQL"
+
+  opts.on('-i', '--input path', "CSV file path, optional. read from stdin if no give") do |path|
+    options[:csv_path] = path
+  end
+
+  opts.on('-c', '--use-cache', "Cache data in ~/.csvsql_cache. it will still reload if file was changed") do
+    options[:use_cache] = true
+  end
+
+  opts.on('--clear-cache', "Clear all cache data") do
+    options[:clear_cache] = true
+  end
+end.parse!
+
+if options[:clear_cache]
+  Csvsql::Db.clear_cache!
+  puts "Completed clear cache."
+  exit
+end
+
+csv_data = options[:csv_path] || StringIO.new($stdin.read)
+
+puts Csvsql.execute(ARGV[0], csv_data, use_cache: options[:use_cache])

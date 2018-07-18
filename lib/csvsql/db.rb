@@ -9,9 +9,10 @@ module Csvsql
 
     FileUtils.mkdir_p(CACHE_DIR) unless Dir.exists?(CACHE_DIR)
 
-    attr_reader :use_cache, :csv_path, :db
+    attr_reader :use_cache, :csv_path, :csv_io, :db
 
     def self.clear_cache!
+      require 'fileutils'
       FileUtils.rm_f(Dir.glob(File.join(CACHE_DIR, '*')))
     end
 
@@ -40,13 +41,18 @@ module Csvsql
       process_sql_error(sql, e)
     end
 
-    def import(csv_path)
-      @csv_path = csv_path
-      @db = SQLite3::Database.new(get_db_path(csv_path))
+    def import(csv_data_or_path)
+      case csv_data_or_path
+      when StringIO, IO
+        @csv_io = csv_data_or_path
+      else
+        @csv_path = csv_data_or_path
+      end
+      @db = SQLite3::Database.new(get_db_path(@csv_path))
 
       tables = db.execute("SELECT name FROM sqlite_master WHERE type='table';").first
       unless tables && tables.include?('csv')
-        init_db()
+        init_db_by_csv(@csv_io ? CSV.new(@csv_io) : CSV.open(@csv_path))
       end
       true
     end
@@ -60,8 +66,7 @@ module Csvsql
       end
     end
 
-    def init_db
-      csv = CSV.open(csv_path)
+    def init_db_by_csv(csv)
       header = parser_header(csv.readline)
 
       cols = header.map { |name, type| "#{name} #{type}" }.join(', ')
@@ -97,6 +102,8 @@ module Csvsql
       else
         "'#{val.gsub("'", "''")}'"
       end
+    rescue => e
+      process_sql_error("Parse val: #{val}", e)
     end
 
     def process_sql_error(sql, err)

@@ -90,6 +90,14 @@ csvsql --clear
 ```
 
 
+## Performance TODO
+
+* 10,000 lines
+* 10,000 lines with cache
+* 1,000,000 lines
+* 1,000,000 lines with cache
+
+
 ## Development
 
 * Make sure your code has some testing.

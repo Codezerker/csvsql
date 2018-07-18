@@ -76,6 +76,21 @@ RSpec.describe Csvsql::Db do
       subject.import(csv_path)
       expect(subject.execute("select count(*) from csv")).to eql([[3]])
     end
+
+    it 'should import by stringio' do
+      subject.import(StringIO.new(File.read(csv_path)))
+      expect(subject.execute('pragma table_info(csv)')).to eql([
+        [0, "name", "varchar(255)", 0, nil, 0],
+        [1, "total", "int", 0, nil, 0],
+        [2, "price", "double", 0, nil, 0],
+        [3, "created_at", "datetime", 0, nil, 0]
+      ])
+      expect(subject.execute('select * from csv')).to eql([
+        ["a", 12, 1.2, "2018-09-01 11:22:00"],
+        ["b", 21, 2.3, "2018-03-10 01:20:00"],
+        ["c", 39, 3.1, "2018-01-19 20:10:00"]
+      ])
+    end
   end
 
   describe '#prepare' do
