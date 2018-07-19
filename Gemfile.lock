@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    csvsql (0.1.0)
+    csvsql (0.1.1)
       sqlite3 (~> 1.3.13)
 
 GEM
