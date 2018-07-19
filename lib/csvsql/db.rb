@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'digest'
+require 'fileutils'
 
 class Csvsql::Db
   BATCH_ROWS = 10000
@@ -10,7 +11,6 @@ class Csvsql::Db
   attr_reader :use_cache, :csv_path, :csv_io, :db, :batch_rows
 
   def self.clear_cache!
-    require 'fileutils'
     FileUtils.rm_f(Dir.glob(File.join(CACHE_DIR, '*')))
   end
 
