@@ -90,10 +90,65 @@ csvsql --clear-cache
 ```
 
 
-## Performance TODO
+## Performance (MBP 2016)
 
-* 10,000 lines
-* 10,000 lines with cache
+**Data**
+
+```
+title,desc,created_at:datetime
+1asdfklajskdjfk alksd flka sdfkja sldfk ,lka sdfa sdlkfj alkr jl2kjlkajslkdfjak,2017-10-20 20:20
+
+```
+
+**10,000 lines**
+
+```
+$ time csvsql -i /tmp/a.csv "select count(*) from csv"
+```
+
+output
+
+```
+count(*)
+100000
+
+real	0m5.070s
+user	0m4.776s
+sys	0m0.256s
+```
+
+**10,000 lines with cache**
+
+```
+$ time csvsql -c -i /tmp/a.csv "select count(*) from csv"
+```
+
+Output
+
+```
+count(*)
+100000
+
+real	0m4.677s
+user	0m4.309s
+sys	0m0.253s
+```
+
+Second output
+
+```
+$ time csvsql -c -i /tmp/a.csv "select count(*) from csv"
+```
+
+```
+count(*)
+100000
+
+real	0m0.502s
+user	0m0.327s
+sys	0m0.151s
+```
+
 * 1,000,000 lines
 * 1,000,000 lines with cache
 
@@ -110,3 +165,4 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/[USERN
 ## License
 
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+/
