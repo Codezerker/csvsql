@@ -107,6 +107,15 @@ RSpec.describe Csvsql::Db do
         ["c", 39, 3.1, "2018-01-19 20:10:00"]
       ])
     end
+
+    it 'should import empty or invalid data type' do
+      subject.import(File.expand_path('../../test2.csv', __FILE__))
+      expect(subject.execute('select * from csv')).to eql([
+        ["a", 12, 1.2, "2018-09-01 11:22:00"],
+        ["n", nil, nil, nil],
+        ["b", 21, 2.3, "2018-03-10 01:20:00"],
+      ])
+    end
   end
 
   describe '#prepare' do

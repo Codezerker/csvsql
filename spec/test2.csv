@@ -1,0 +1,4 @@
+name,total:int,price:double,created_at:datetime
+a,12,1.2,2018-09-1 11:22
+n,,
+b,21,2.3,2018-03-10 1:20

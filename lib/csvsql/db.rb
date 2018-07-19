@@ -14,12 +14,13 @@ class Csvsql::Db
     FileUtils.rm_f(Dir.glob(File.join(CACHE_DIR, '*')))
   end
 
-  def initialize(use_cache: false, batch_rows: nil)
+  def initialize(use_cache: false, batch_rows: nil, sql_error_action: nil)
     @db = nil
     @csv_io = nil
     @csv_path = nil
     @use_cache = use_cache
     @batch_rows = batch_rows || BATCH_ROWS
+    @sql_error_action = (sql_error_action || :raise).to_sym
   end
 
   # action:
@@ -77,7 +78,7 @@ class Csvsql::Db
     col_names = header.map(&:first)
     Csvsql::Tracker.commit(:import_csv)
     csv.each do |line|
-      cache << line.each_with_index.map { |v, i| format_sql_val(v, header[i][1]) }
+      cache << header.each_with_index.map { |h, i| format_sql_val(line[i], h[1]) }
 
       if cache.length >= batch_rows then
         import_lines(cache, col_names)
@@ -98,6 +99,8 @@ class Csvsql::Db
   end
 
   def format_sql_val(val, type)
+    return 'null' if val.nil? || val.to_s.strip.empty?
+
     case type
     when :int, :integer then val.to_i
     when :float, :double then val.to_f
@@ -107,14 +110,14 @@ class Csvsql::Db
       "'#{val.gsub("'", "''")}'"
     end
   rescue => e
-    process_sql_error("Parse val: #{val}", e)
+    process_sql_error("Parse #{type} val: #{val}", e)
   end
 
   def process_sql_error(sql, err)
     $stderr.puts(sql)
 
-    if @error_action == :exit
-      $stderr.puts(e.message)
+    if @sql_error_action == :exit
+      $stderr.puts(err.message)
       exit
     else
       raise err
