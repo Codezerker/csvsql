@@ -8,7 +8,8 @@ require 'csvsql'
 
 options = {}
 OptionParser.new do |opts|
-  opts.banner = "Usage: csvsql [options] SQL"
+  opts.banner = "Csvsql #{Csvsql::VERSION}\nUsage: csvsql [options] SQL"
+  opts.version = Csvsql::VERSION
 
   opts.on('-i', '--input path', "CSV file path, optional. read from stdin if no give") do |path|
     options[:csv_path] = path
@@ -18,8 +19,19 @@ OptionParser.new do |opts|
     options[:use_cache] = true
   end
 
+  opts.on(
+    '-b', '--batch-rows n',
+    "How many rows to import per batch. Default value is #{Csvsql::Db::BATCH_ROWS}"
+  ) do |n|
+    options[:batch_rows] = n.to_i
+  end
+
   opts.on('--clear-cache', "Clear all cache data") do
     options[:clear_cache] = true
+  end
+
+  opts.on('--debug', "Print debug info") do
+    options[:debug] = true
   end
 end.parse!
 
@@ -29,6 +41,10 @@ if options[:clear_cache]
   exit
 end
 
+if options[:debug]
+  Csvsql::Tracker.tracker = Csvsql::Tracker.new(Logger.new($stdout))
+end
+
 csv_data = options[:csv_path] || StringIO.new($stdin.read)
 
-puts Csvsql.execute(ARGV[0], csv_data, use_cache: options[:use_cache])
+puts Csvsql.execute(ARGV[0], csv_data, use_cache: options[:use_cache], batch_rows: options[:batch_rows])

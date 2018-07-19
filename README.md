@@ -75,10 +75,10 @@ csvsql -i mydata.csv "select name, total from csv where total < 30" | csvsql "se
 It will save the CSV data to a tempfile. we use `~/.csvsql_cache` folder to save the cache
 
 ```
-csvsql -i large.csv -t "select count(*) from csv"
+csvsql -i large.csv -c "select count(*) from csv"
 
 # the second, it will be fast.
-csvsql -i large.csv -t "select count(*) from csv"
+csvsql -i large.csv -c "select count(*) from csv"
 ```
 
 ### Clear Cache
@@ -86,7 +86,7 @@ csvsql -i large.csv -t "select count(*) from csv"
 This command will remove all data in the `~/.csvsql_cache`
 
 ```
-csvsql --clear
+csvsql --clear-cache
 ```
 
 
