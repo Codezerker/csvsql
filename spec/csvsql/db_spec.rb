@@ -116,6 +116,13 @@ RSpec.describe Csvsql::Db do
         ["b", 21, 2.3, "2018-03-10 01:20:00"],
       ])
     end
+
+    it 'should import file with a encoding' do
+      subject.import(File.expand_path('../../test3_gb18030.csv', __FILE__), encoding: 'GB18030')
+      expect(subject.execute('select * from csv')).to eql([
+        ["中文", 12]
+      ])
+    end
   end
 
   describe '#prepare' do

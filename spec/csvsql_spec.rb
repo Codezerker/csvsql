@@ -11,7 +11,7 @@ RSpec.describe Csvsql do
     it "should import data to csvdb and execute sql" do
       allow(Csvsql::Db).to receive(:new).and_return(csvdb)
       pst = double('pst', columns: ['a', 'b'], types: ['text', 'int'], each: nil)
-      expect(csvdb).to receive(:import).with(path)
+      expect(csvdb).to receive(:import).with(path, encoding: nil)
       expect(csvdb).to receive(:prepare).with(sql).and_return(pst)
       Csvsql.execute(sql, path)
     end
@@ -19,7 +19,7 @@ RSpec.describe Csvsql do
     it "should return result as csv" do
       allow(Csvsql::Db).to receive(:new).and_return(csvdb)
       pst = double('pst', columns: ['a', 'b'], types: ['text', 'int'], each: nil)
-      expect(csvdb).to receive(:import).with(path)
+      expect(csvdb).to receive(:import).with(path, encoding: nil)
       expect(csvdb).to receive(:prepare).with(sql).and_return(pst)
 
       allow(pst).to receive(:each) { |&block| block.call(['da', 'db']) }
@@ -29,11 +29,21 @@ RSpec.describe Csvsql do
     it "should not join nil type" do
       allow(Csvsql::Db).to receive(:new).and_return(csvdb)
       pst = double('pst', columns: ['a', 'b'], types: ['text', nil], each: nil)
-      expect(csvdb).to receive(:import).with(path)
+      expect(csvdb).to receive(:import).with(path, encoding: nil)
       expect(csvdb).to receive(:prepare).with(sql).and_return(pst)
 
       allow(pst).to receive(:each) { |&block| block.call(['da', 'db']) }
       expect(Csvsql.execute(sql, path)).to eql("a:text,b\nda,db\n")
+    end
+
+    it "should catch encoding opts" do
+      expect(Csvsql::Db).to receive(:new).with(use_cache: true).and_return(csvdb)
+      pst = double('pst', columns: ['a', 'b'], types: ['text', nil], each: nil)
+      expect(csvdb).to receive(:import).with(path, encoding: 'utf-8')
+      expect(csvdb).to receive(:prepare).with(sql).and_return(pst)
+
+      allow(pst).to receive(:each) { |&block| block.call(['da', 'db']) }
+      expect(Csvsql.execute(sql, path, encoding: 'utf-8', use_cache: true)).to eql("a:text,b\nda,db\n")
     end
   end
 end

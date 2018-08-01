@@ -42,7 +42,7 @@ class Csvsql::Db
     process_sql_error(sql, e)
   end
 
-  def import(csv_data_or_path)
+  def import(csv_data_or_path, encoding: 'utf-8')
     case csv_data_or_path
     when StringIO, IO
       @csv_io = csv_data_or_path
@@ -53,7 +53,7 @@ class Csvsql::Db
 
     tables = db.execute("SELECT name FROM sqlite_master WHERE type='table';").flatten
     unless tables.include?('csv')
-      init_db_by_csv(@csv_io ? CSV.new(@csv_io) : CSV.open(@csv_path))
+      init_db_by_csv(@csv_io ? CSV.new(@csv_io) : CSV.open(@csv_path, "r:#{encoding}"))
     end
     true
   end

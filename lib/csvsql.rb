@@ -10,8 +10,9 @@ require 'csvsql/tracker'
 
 module Csvsql
   def self.execute(sql, csv_data, opts = {})
+    encoding = opts.delete(:encoding)
     csvdb = Csvsql::Db.new(opts)
-    csvdb.import(csv_data)
+    csvdb.import(csv_data, encoding: encoding)
     pst = Csvsql::Tracker.commit(:execute_query_sql) do
       csvdb.prepare(sql)
     end
@@ -22,4 +23,3 @@ module Csvsql
     end.tap { Csvsql::Tracker.commit(:output_format) }
   end
 end
-

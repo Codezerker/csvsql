@@ -26,6 +26,10 @@ OptionParser.new do |opts|
     options[:batch_rows] = n.to_i
   end
 
+  opts.on('-e', '--encoding encoding', "Set the file encoding, default is UTF-8") do |encoding|
+    options[:encoding] = encoding
+  end
+
   opts.on('--clear-cache', "Clear all cache data") do
     options[:clear_cache] = true
   end
@@ -49,6 +53,9 @@ csv_data = options[:csv_path] || StringIO.new($stdin.read)
 
 puts Csvsql.execute(
   ARGV[0], csv_data,
-  use_cache: options[:use_cache], batch_rows: options[:batch_rows], sql_error_action: 'exit'
+  use_cache: options[:use_cache],
+  batch_rows: options[:batch_rows],
+  sql_error_action: 'exit',
+  encoding: options[:encoding]
 )
 
