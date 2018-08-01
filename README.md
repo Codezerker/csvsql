@@ -1,6 +1,9 @@
 Csvsql
 ======
 
+[![Build Status](https://travis-ci.org/Codezerker/csvsql.svg?branch=master)](https://travis-ci.org/Codezerker/csvsql)
+[![Gem Version](https://badge.fury.io/rb/csvsql.svg)](https://badge.fury.io/rb/csvsql)
+
 Use SQL to query your CSV file, and return a new CSV.
 
 
