@@ -1,3 +1,4 @@
+---
 sudo: false
 dist: trusty
 language: ruby
@@ -14,4 +15,6 @@ rvm:
 before_install:
   - gem install bundler --no-doc
 
-script: bundle exec rspec
+script:
+  - bundle exec rspec
+  - rubocop

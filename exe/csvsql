@@ -58,4 +58,3 @@ puts Csvsql.execute(
   sql_error_action: 'exit',
   encoding: options[:encoding]
 )
-
