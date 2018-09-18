@@ -63,7 +63,7 @@ class Csvsql::Db
   def parser_header(csv_header)
     csv_header.map do |col, r|
       name, type = col.strip.split(':')
-      [name, (type || 'varchar(255)').downcase.to_sym]
+      [name.gsub(/[\s-]+/, '_'), (type || 'varchar(255)').downcase.to_sym]
     end
   end
 
@@ -107,7 +107,7 @@ class Csvsql::Db
     when :date then "'#{Date.parse(val).to_s}'"
     when :datetime then "'#{Time.parse(val).strftime('%F %T')}'"
     else
-      "'#{val.gsub("'", "''")}'"
+      "'#{val.to_s.gsub("'", "''")}'"
     end
   rescue => e
     process_sql_error("Parse #{type} val: #{val}", e)

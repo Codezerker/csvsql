@@ -92,6 +92,17 @@ RSpec.describe Csvsql::Db do
       ])
     end
 
+    it 'should convert invalid char to _ for column name' do
+      subject.import(StringIO.new("a 1,b-2\n1,2"))
+      expect(subject.execute('pragma table_info(csv)')).to eql([
+        [0, "a_1", "varchar(255)", 0, nil, 0],
+        [1, "b_2", "varchar(255)", 0, nil, 0],
+      ])
+      expect(subject.execute('select * from csv')).to eql([
+        ["1", '2']
+      ])
+    end
+
     it 'should import all data if rows > batch_rows' do
       subject = described_class.new(use_cache: false, batch_rows: 1)
       subject.import(StringIO.new(File.read(csv_path)))
