@@ -2,19 +2,9 @@ RSpec.describe Csvsql::Db do
   let(:csv_path) { File.expand_path('../../test.csv', __FILE__) }
 
   around :each, clear_cache: true do |example|
-    described_class.clear_cache!
+    Csvsql.clear_cache!
     example.run
-    described_class.clear_cache!
-  end
-
-  describe '.clear_cache!' do
-    it 'should remove all cache fiels' do
-      cache_path = File.join(Csvsql::Db::CACHE_DIR, 'asdf')
-      FileUtils.touch(cache_path)
-      expect {
-        Csvsql::Db.clear_cache!
-      }.to change { File.exist?(cache_path) }.to(false)
-    end
+    Csvsql.clear_cache!
   end
 
   describe '#import' do
@@ -45,34 +35,27 @@ RSpec.describe Csvsql::Db do
       ])
     end
 
-    it 'should import again if cache is false' do
-      subject.import(csv_path)
-      subject.execute("delete from csv where name = 'a'")
-      expect(subject.execute("select count(*) from csv")).to eql([[2]])
-      subject.import(csv_path)
-      expect(subject.execute("select count(*) from csv")).to eql([[3]])
-    end
-
-    it 'should not reimport if cache is true', clear_cache: true do
-      subject = described_class.new(use_cache: true)
+    it 'should not reimport if table is existed', clear_cache: true do
+      subject = described_class.new
 
       subject.import(csv_path)
       subject.execute("delete from csv where name = 'a'")
       expect(subject.execute("select count(*) from csv")).to eql([[2]])
 
-      expect(CSV).to_not receive(:open)
+      expect_any_instance_of(CSV).to_not receive(:readline)
+      expect_any_instance_of(CSV).to_not receive(:read)
       subject.import(csv_path)
       expect(subject.execute("select count(*) from csv")).to eql([[2]])
     end
 
-    it 'should reimport if csv is changed', clear_cache: true do
-      subject = described_class.new(use_cache: true)
+    it 'should reimport if not found table', clear_cache: true do
+      subject = described_class.new
 
       subject.import(csv_path)
       subject.execute("delete from csv where name = 'a'")
       expect(subject.execute("select count(*) from csv")).to eql([[2]])
 
-      File.write(csv_path, File.read(csv_path))
+      subject.execute("drop table csv")
       subject.import(csv_path)
       expect(subject.execute("select count(*) from csv")).to eql([[3]])
     end
@@ -104,7 +87,7 @@ RSpec.describe Csvsql::Db do
     end
 
     it 'should import all data if rows > batch_rows' do
-      subject = described_class.new(use_cache: false, batch_rows: 1)
+      subject = described_class.new(batch_rows: 1)
       subject.import(StringIO.new(File.read(csv_path)))
       expect(subject.execute('pragma table_info(csv)')).to eql([
         [0, "name", "varchar(255)", 0, nil, 0],
@@ -134,6 +117,21 @@ RSpec.describe Csvsql::Db do
         ["中文", 12]
       ])
     end
+
+    it 'should import data with multi tables' do
+      subject.import(a: csv_path, b: csv_path)
+      subject.execute("delete from a where name = 'a'")
+
+      expect(subject.execute('select * from a')).to eql([
+        ["b", 21, 2.3, "2018-03-10 01:20:00"],
+        ["c", 39, 3.1, "2018-01-19 20:10:00"]
+      ])
+      expect(subject.execute('select * from b')).to eql([
+        ["a", 12, 1.2, "2018-09-01 11:22:00"],
+        ["b", 21, 2.3, "2018-03-10 01:20:00"],
+        ["c", 39, 3.1, "2018-01-19 20:10:00"]
+      ])
+    end
   end
 
   describe '#prepare' do
@@ -143,6 +141,21 @@ RSpec.describe Csvsql::Db do
       expect(pst.columns).to eql(%w{name total})
       expect(pst.types).to eql(%w{varchar(255) int})
       expect(pst.to_a).to eql([['a', 12], ['b', 21], ['c', 39]])
+    end
+  end
+
+  describe '#init_db' do
+    it 'should use memory db for default' do
+      expect(subject.db.filename).to eql('')
+    end
+
+    it 'should change the db file by init db' do
+      cache_path = File.join(Csvsql::CACHE_DIR, 'a')
+      subject.init_db(cache_path)
+      expect(subject.db.filename).to eql(cache_path)
+
+      subject.init_db(cache_path + 'asdf')
+      expect(subject.db.filename).to eql(cache_path + 'asdf')
     end
   end
 end

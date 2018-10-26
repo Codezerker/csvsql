@@ -1,24 +1,13 @@
 # frozen_string_literal: true
 
-require 'digest'
-require 'fileutils'
-
 class Csvsql::Db
   BATCH_ROWS = 10000
-  CACHE_DIR = File.join(Dir.home, '.csvsql_cache')
-  FileUtils.mkdir_p(CACHE_DIR) unless Dir.exists?(CACHE_DIR)
 
-  attr_reader :use_cache, :csv_path, :csv_io, :db, :batch_rows
+  attr_reader :data_source, :batch_rows
 
-  def self.clear_cache!
-    FileUtils.rm_f(Dir.glob(File.join(CACHE_DIR, '*')))
-  end
-
-  def initialize(use_cache: false, batch_rows: nil, sql_error_action: nil)
+  def initialize(batch_rows: nil, sql_error_action: nil)
     @db = nil
-    @csv_io = nil
-    @csv_path = nil
-    @use_cache = use_cache
+    @data_source = {}
     @batch_rows = batch_rows || BATCH_ROWS
     @sql_error_action = (sql_error_action || :raise).to_sym
   end
@@ -42,18 +31,35 @@ class Csvsql::Db
     process_sql_error(sql, e)
   end
 
+  def db
+    @db ||= init_db
+  end
+
+  def init_db(cache_path = '')
+    @db = SQLite3::Database.new(cache_path)
+  end
+
+  # Params:
+  #   csv_data_or_path:
+  #     [String] csv path
+  #     [StringIO, IO] csv buffer io
+  #     [Hash] { table_name => csv_path }
   def import(csv_data_or_path, encoding: 'utf-8')
     case csv_data_or_path
     when StringIO, IO
-      @csv_io = csv_data_or_path
+      data_source['csv'] = CSV.new(csv_data_or_path)
+    when Hash
+      csv_data_or_path.each do |table_name, path|
+        data_source[table_name.to_s] = CSV.open(path, "r:#{encoding}")
+      end
     else
-      @csv_path = csv_data_or_path
+      data_source['csv'] = CSV.open(csv_data_or_path, "r:#{encoding}")
     end
-    @db = SQLite3::Database.new(get_db_path(@csv_path))
 
     tables = db.execute("SELECT name FROM sqlite_master WHERE type='table';").flatten
-    unless tables.include?('csv')
-      init_db_by_csv(@csv_io ? CSV.new(@csv_io) : CSV.open(@csv_path, "r:#{encoding}"))
+    data_source.each do |table_name, csv|
+      next if tables.include?('csv')
+      init_table_by_csv(table_name, csv)
     end
     true
   end
@@ -67,11 +73,11 @@ class Csvsql::Db
     end
   end
 
-  def init_db_by_csv(csv)
+  def init_table_by_csv(table_name, csv)
     header = parser_header(csv.readline)
 
     cols = header.map { |name, type| "#{name} #{type}" }.join(', ')
-    sql = "CREATE TABLE csv (#{cols});"
+    sql = "CREATE TABLE #{table_name} (#{cols});"
     execute sql
 
     cache = []
@@ -81,18 +87,18 @@ class Csvsql::Db
       cache << header.each_with_index.map { |h, i| format_sql_val(line[i], h[1]) }
 
       if cache.length >= batch_rows then
-        import_lines(cache, col_names)
+        import_lines(table_name, cache, col_names)
         cache.clear
       end
     end
-    import_lines(cache, col_names) unless cache.empty?
+    import_lines(table_name, cache, col_names) unless cache.empty?
     Csvsql::Tracker.commit(:import_csv)
     db
   end
 
-  def import_lines(lines, col_names)
+  def import_lines(table_name, lines, col_names)
     sql = Csvsql::Tracker.commit(:generate_import_sql) do
-      s = "INSERT INTO csv (#{col_names.join(', ')}) VALUES "
+      s = "INSERT INTO #{table_name} (#{col_names.join(', ')}) VALUES "
       s += lines.map { |line| "(#{line.join(',')})" }.join(', ')
     end
     Csvsql::Tracker.commit(:execute_import_sql) { execute sql }
@@ -121,33 +127,6 @@ class Csvsql::Db
       exit
     else
       raise err
-    end
-  end
-
-  def get_db_path(csv_path)
-    csv_path = csv_path || ''
-    return '' unless File.exist?(csv_path)
-
-    if use_cache
-      stat = File.stat(csv_path)
-      filename = Digest::SHA2.hexdigest(File.absolute_path(csv_path)) + '.cache'
-      file_stat = [File.absolute_path(csv_path), stat.size, stat.ctime].join("\n")
-      stat_path = File.join(CACHE_DIR, filename.gsub(/\.cache$/, '.stat'))
-      cache_path = File.join(CACHE_DIR, filename)
-
-      if File.exist?(stat_path)
-        if File.read(stat_path) == file_stat
-          cache_path
-        else
-          FileUtils.rm(cache_path)
-          cache_path
-        end
-      else
-        File.write(stat_path, file_stat)
-        cache_path
-      end
-    else
-      ''
     end
   end
 end

@@ -1,18 +1,19 @@
 #! /usr/bin/env ruby
 
 require 'optparse'
+require 'pry'
 
 lib = File.expand_path("../../lib", __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'csvsql'
 
-options = {}
+options = { csv_path: [] }
 OptionParser.new do |opts|
   opts.banner = "Csvsql #{Csvsql::VERSION}\nUsage: csvsql [options] SQL"
   opts.version = Csvsql::VERSION
 
   opts.on('-i', '--input path', "CSV file path, optional. read from stdin if no give") do |path|
-    options[:csv_path] = path
+    options[:csv_path] << path
   end
 
   opts.on('-c', '--use-cache', "Cache data in ~/.csvsql_cache. it will still reload if file was changed") do
@@ -42,14 +43,28 @@ end.parse!
 if options[:clear_cache]
   Csvsql::Db.clear_cache!
   puts "Completed clear cache."
-  exit
+  exit 0
 end
 
 if options[:debug]
   Csvsql::Tracker.tracker = Csvsql::Tracker.new(Logger.new($stdout))
 end
 
-csv_data = options[:csv_path] || StringIO.new($stdin.read)
+csv_data = case options[:csv_path].size
+when 0
+  StringIO.new($stdin.read)
+when 1
+  options[:csv_path].first
+else
+  options[:csv_path].each_with_object({}) do |path, r|
+    p, n = path.split(':')
+    if n.nil? || n.empty?
+      puts "You should give #{p} a name, example: #{p}:a_name"
+      exit 1
+    end
+    r[n] = p
+  end
+end
 
 puts Csvsql.execute(
   ARGV[0], csv_data,
