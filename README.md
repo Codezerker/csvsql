@@ -75,13 +75,27 @@ csvsql -i mydata.csv "select name, total from csv where total < 30" | csvsql "se
 
 ### Cache CSV data
 
-It will save the CSV data to a tempfile. we use `~/.csvsql_cache` folder to save the cache
+It will save the parsed data to `~/.csvsql_cache` folder. it will not parse data again next time if the data file didn't change
 
 ```
 csvsql -i large.csv -c "select count(*) from csv"
 
 # the second, it will be fast.
 csvsql -i large.csv -c "select count(*) from csv"
+```
+
+### Query multiple CSV files
+
+For multiple files, we should name each files. This name will be a `table name`.
+
+```
+csvsql -i users.csv:users -i posts.csv:posts "select * from posts join users on posts.user_id = users.id where users.role = 'guest'"
+```
+
+With cache. those name will be a `database name`, the table name is `csv`. If a csv file was updated, that db will be update only. Other db still use cache.
+
+```
+csvsql -i users.csv:users -i posts.csv:posts -c "select * from posts.csv join users.csv on posts.csv.user_id = users.csv.id where users.csv.role = 'guest'"
 ```
 
 ### Clear Cache
