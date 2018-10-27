@@ -80,8 +80,14 @@ RSpec.describe Csvsql do
         expect_any_instance_of(Csvsql::Db).to receive(:import).with(path, encoding: 'utf-8').twice.and_call_original
         expect_any_instance_of(Csvsql::Db).to receive(:prepare).with(sql).and_call_original
 
+        # In Travis CI, that old version of SQLite3 cannot get column type
+        col_names = if SQLite3.libversion <= 3008002
+          "name,total,price,created_at\n"
+        else
+          "name:varchar(255),total:int,price:double,created_at:datetime\n"
+        end
         expect(Csvsql.execute(sql, { a: path, b: path }, encoding: 'utf-8', use_cache: true)).to eql(
-          "name:varchar(255),total:int,price:double,created_at:datetime\n" +
+          col_names +
           "b,21,2.3,2018-03-10 01:20:00\n" +
           "c,39,3.1,2018-01-19 20:10:00\n"
         )
