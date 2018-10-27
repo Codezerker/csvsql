@@ -96,7 +96,7 @@ For multiple files, we should name each files. This name will be a `table name`.
 csvsql -i users.csv:users -i posts.csv:posts "select * from posts join users on posts.user_id = users.id where users.role = 'guest'"
 ```
 
-With cache. those name will be a `database name`, the table name is `csv`. If a csv file was updated, that db will be update only. Other db still use cache.
+With cache, those name will be a `database name`, the table name is `csv`. If a csv file was updated, its db will automatically update. Other files still use cache.
 
 ```
 csvsql -i users.csv:users -i posts.csv:posts -c "select * from posts.csv join users.csv on posts.csv.user_id = users.csv.id where users.csv.role = 'guest'"
@@ -172,6 +172,13 @@ sys	0m0.151s
 
 * 1,000,000 lines
 * 1,000,000 lines with cache
+
+
+## Known Issues
+
+1. Output columns have no a date type.
+
+Because the SQLite3 version too old. Upgrate it.
 
 
 ## Development
