@@ -7,6 +7,10 @@ Csvsql
 Use SQL to query your CSV file, and return a new CSV.
 
 
+## Requirements
+
+* SQlite 3.6.16 or newer.
+
 ## Installation
 
 Add this line to your application's Gemfile:
